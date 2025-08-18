@@ -1,5 +1,4 @@
 from fastapi import APIRouter, HTTPException
-from utils.knowledge_graph import kg
 import time
 
 router = APIRouter()
