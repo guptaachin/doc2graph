@@ -1,5 +1,5 @@
 // src/components/chatbot/QAChatWindow.jsx
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import MessageList from "./MessageList";
 import ChatInput from "./ChatInput";
 
@@ -27,9 +27,9 @@ export default function QAChatWindow({ user, token }) {
   
     useEffect(() => {
       fetchFiles();
-    }, []);
+    }, [fetchFiles]);
 
-  const fetchFiles = async () => {
+  const fetchFiles = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`${KNOWLEDGE_GRAPH_BASE}/files`, {
@@ -37,12 +37,12 @@ export default function QAChatWindow({ user, token }) {
       });
       if (!res.ok) throw new Error("Failed to fetch files");
       const data = await res.json();
-      setFiles(data);
+      setFiles(data || []);
     } catch (err) {
       console.error(err);
     }
     setLoading(false);
-  };
+  }, [token]);
 
   const toggleFileSelection = (filename) => {
     if (selectedFiles.includes(filename)) {

@@ -20,8 +20,8 @@ function Navbar({ user, onLogout }) {
       <div style={styles.container}>
         <div style={styles.brand}>
           <Link to="/home" style={styles.brandLink}>
-            <span style={styles.brandIcon}>⚡</span>
-            ProductivePro
+            <span style={styles.brandIcon}>🧠</span>
+            Universal KG Builder
           </Link>
         </div>
 
@@ -37,15 +37,25 @@ function Navbar({ user, onLogout }) {
           </Link>
           
           <Link 
-            to="/chat" 
+            to="/ingest" 
             style={{
               ...styles.navLink,
-              ...(isActive('/chat') ? styles.activeLink : {})
+              ...(isActive('/ingest') ? styles.activeLink : {})
             }}
           >
-            Chat
+            Ingest
           </Link>
           
+          <Link 
+            to="/graph" 
+            style={{
+              ...styles.navLink,
+              ...(isActive('/graph') ? styles.activeLink : {})
+            }}
+          >
+            Graph
+          </Link>
+
           <Link 
             to="/qa" 
             style={{
@@ -56,15 +66,6 @@ function Navbar({ user, onLogout }) {
             Q&A
           </Link>
           
-          <Link 
-            to="/filehandler" 
-            style={{
-              ...styles.navLink,
-              ...(isActive('/filehandler') ? styles.activeLink : {})
-            }}
-          >
-            Files
-          </Link>
 
           {user && (
             <Link 

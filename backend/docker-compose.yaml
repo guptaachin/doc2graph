@@ -1,83 +1,45 @@
 version: '3.5'
 
 services:
-  # postgres:
-  #   container_name: postgres_container
-  #   image: postgres:15
-  #   environment:
-  #     POSTGRES_USER: ${POSTGRES_USER:-postgres}
-  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
-  #     POSTGRES_DB: ${POSTGRES_DB:-app_db}
-  #     PGDATA: /var/lib/postgresql/data/pgdata
-  #   volumes:
-  #     - postgres:/var/lib/postgresql/data
-  #   ports:
-  #     - "5432:5432"
-  #   networks:
-  #     - backend_net
-  #   restart: unless-stopped
 
-  # pgadmin:
-  #   container_name: pgadmin_container
-  #   image: dpage/pgadmin4
-  #   environment:
-  #     PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-pgadmin4@pgadmin.org}
-  #     PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
-  #     PGADMIN_CONFIG_SERVER_MODE: 'False'
-  #   volumes:
-  #     - pgadmin:/var/lib/pgadmin
-  #   ports:
-  #     - "${PGADMIN_PORT:-5050}:80"
-  #   networks:
-  #     - backend_net
-  #   restart: unless-stopped
-
-  # mongo:
-  #   container_name: mongo_container
-  #   image: mongo:6
-  #   restart: unless-stopped
-  #   environment:
-  #     MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-root}
-  #     MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-changeme}
-  #   ports:
-  #     - "27017:27017"
-  #   volumes:
-  #     - mongo:/data/db
-  #   networks:
-  #     - backend_net
-
-  # mongo-express:
-  #   container_name: mongo_express_container
-  #   image: mongo-express:1.0.0-alpha
-  #   restart: unless-stopped
-  #   ports:
-  #     - "8081:8081"
-  #   environment:
-  #     ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_INITDB_ROOT_USERNAME:-root}
-  #     ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-changeme}
-  #     ME_CONFIG_MONGODB_SERVER: mongo_container
-  #   networks:
-  #     - backend_net
-  #   depends_on:
-  #     - mongo
+  neo4j:
+    image: neo4j:5
+    container_name: neo4j_local
+    ports:
+      - "7474:7474"   # HTTP Browser
+      - "7687:7687"   # Bolt
+    environment:
+      - NEO4J_AUTH=${NEO4J_AUTH:-neo4j/neo4j1234}
+      - NEO4J_dbms_memory_heap_initial__size=512m
+      - NEO4J_dbms_memory_heap_max__size=1G
+      - NEO4J_dbms_memory_pagecache_size=512m
+      - NEO4J_apoc_export__file__enabled=true
+      - NEO4J_apoc_import__file__enabled=true
+      - NEO4J_apoc_import__file__use__neo4j__config=true
+      - NEO4J_PLUGINS=["apoc","graph-data-science"]
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - neo4j_import:/var/lib/neo4j/import
+      - neo4j_plugins:/plugins
+    networks:
+      - backend_net
+    # Healthcheck removed for stability; backend handles retry-on-connect
 
   backend:
     container_name: backend_app
-    build: ./backend
+    build: ./
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app/backend
+      - ./:/app/backend
     working_dir: /app/backend
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/backend
-    # depends_on:
-      # - postgres
-      # - mongo
     networks:
       - backend_net
-    # environment:
-      # DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-changeme}@postgres_container:5432/${POSTGRES_DB:-app_db}
-      # MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-root}:${MONGO_INITDB_ROOT_PASSWORD:-changeme}@mongo_container:27017
+    depends_on:
+      - neo4j
+      
 
 networks:
   backend_net:
@@ -86,4 +48,7 @@ networks:
 volumes:
   postgres:
   pgadmin:
-  mongo:
+  neo4j_data:
+  neo4j_logs:
+  neo4j_import:
+  neo4j_plugins:

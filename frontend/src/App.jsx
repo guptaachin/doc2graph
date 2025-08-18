@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Navbar from './components/Navbar';
 import Home from "./components/Home";
-import Chat from "./components/chatbot/ChatWindow";
 import QA from "./components/QAchatbot/QAChatWindow";
-import Filehandler from "./components/filehandler/Filehandler";
+import Ingest from "./components/ingest/Ingest";
+import GraphView from "./components/graph/GraphView";
 import LoginView from './components/login/LoginView';
 import ProfileView from './components/login/ProfileView';
 
@@ -15,9 +15,11 @@ function App() {
   });
 
   const handleLoginSuccess = (data) => {
-    setUser(data.user);
-    localStorage.setItem("token", data.access_token);
-    localStorage.setItem("user", JSON.stringify(data.user));
+    const user = data.user || { name: 'Guest', email: 'guest@example.com', sub: 'guest' };
+    const token = data.access_token || 'guest-token';
+    setUser(user);
+    localStorage.setItem("token", token);
+    localStorage.setItem("user", JSON.stringify(user));
   };
 
   const handleLogout = () => {
@@ -39,9 +41,9 @@ function App() {
           element={!user ? <LoginView onLoginSuccess={handleLoginSuccess} /> : <Navigate to="/home" replace />}
         />
 
-        <Route path="/chat" element={<Chat user={user} />} />
+        <Route path="/ingest" element={<Ingest user={user} token={localStorage.getItem("token")} />} />
+        <Route path="/graph" element={<GraphView user={user} token={localStorage.getItem("token")} />} />
         <Route path="/qa" element={<QA user={user} token={localStorage.getItem("token")} />} />
-        <Route path="/filehandler" element={<Filehandler user={user} token={localStorage.getItem("token")} />} />
 
         <Route
           path="/profile"

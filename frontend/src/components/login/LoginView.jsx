@@ -1,6 +1,5 @@
 
 import React from 'react';
-import GoogleLoginButton from './GoogleLoginButton';
 import '../../styles/login.css'; 
 
 function LoginView({ onLoginSuccess }) {
@@ -38,18 +37,26 @@ function LoginView({ onLoginSuccess }) {
         {/* Login content */}
         <div className="login-content">
           <div className="login-form">
-            <GoogleLoginButton onLoginSuccess={onLoginSuccess} />
+            <button
+              onClick={() => onLoginSuccess({
+                access_token: 'guest-token',
+                user: { sub: 'guest', email: 'guest@example.com', name: 'Guest' }
+              })}
+              className="btn btn-primary"
+            >
+              Continue as Guest
+            </button>
             
             {/* Divider */}
             <div className="divider">
-              <span className="divider-text">Secure authentication</span>
+              <span className="divider-text">Guest access enabled</span>
             </div>
 
             {/* Features list */}
             <div className="features-list">
               <div className="feature-item">
                 <div className="feature-icon">🔐</div>
-                <span>Secure OAuth2 authentication</span>
+                <span>No OAuth required</span>
               </div>
               <div className="feature-item">
                 <div className="feature-icon">⚡</div>

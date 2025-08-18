@@ -6,6 +6,7 @@ from langchain_openai import OpenAIEmbeddings
 from langchain.chains import RetrievalQAWithSourcesChain
 from langchain_openai import ChatOpenAI
 from environment import NEO4J_URI, NEO4J_USER, NEO4J_PASS
+from database.neo import get_neo4j_connection
 import logging
 from tqdm import tqdm
 from utils.extract_text_from_pdf import extract_text_from_pdf
@@ -31,8 +32,8 @@ VECTOR_EMBEDDING_PROPERTY = 'textEmbedding'
 
 
 
-# Initialize Neo4j connection
-kg = Neo4jGraph(url=NEO4J_URI, username=NEO4J_USER, password=NEO4J_PASS)
+# Initialize Neo4j connection with retries and env switching
+kg = get_neo4j_connection()
 
 
 
