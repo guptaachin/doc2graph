@@ -1,0 +1,50 @@
+# Core FastAPI and web framework
+fastapi==0.116.1
+uvicorn==0.35.0
+starlette==0.47.2
+python-multipart==0.0.20
+
+# Database and async
+motor==3.7.1
+pymongo==4.14.0
+neo4j==5.28.2
+
+# Authentication and security
+python-jose==3.5.0
+python-dotenv==1.1.1
+google-auth==2.40.3
+Authlib==1.6.1
+
+# LangChain and AI
+langchain==0.3.27
+langchain-community==0.3.27
+langchain-core==0.3.74
+langchain-neo4j==0.5.0
+langchain-openai==0.3.30
+langchain-text-splitters==0.3.9
+openai==1.99.9
+
+# File processing
+PyMuPDF==1.26.3
+pytesseract==0.3.13
+pillow==11.3.0
+numpy==2.3.2
+
+# Utilities
+pydantic==2.11.7
+pydantic-settings==2.10.1
+tqdm==4.67.1
+httpx==0.28.1
+
+# Discord integration
+discord.py==2.5.2
+
+# Core dependencies that were missing
+itsdangerous==2.2.0
+click==8.1.8
+Jinja2==3.1.6
+MarkupSafe==3.0.2
+
+# Development and testing (optional - remove if not needed)
+pytest==8.4.1
+pytest-cov==6.1.1
