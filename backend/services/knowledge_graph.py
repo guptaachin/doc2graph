@@ -9,7 +9,8 @@ from database.neo import get_neo4j_connection
 from environment import NEO4J_URI, NEO4J_USER, NEO4J_PASS
 from langchain.chains import RetrievalQAWithSourcesChain
 from langchain_community.vectorstores import Neo4jVector
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
+from services.embeddings import get_embeddings, embed_text, embedding_dimension
 from utils.extract_text_from_image import extract_text_from_image
 from utils.extract_text_from_pdf import extract_text_from_pdf
 
@@ -252,13 +253,14 @@ def _create_vector_index_and_embeddings(filename: str | None = None):
         FOR (c:Chunk) ON (c.textEmbedding)
         OPTIONS {
             indexConfig: {
-                `vector.dimensions`: 1536,
+                `vector.dimensions`: $dims,
                 `vector.similarity_function`: 'cosine'
             }
         }
         """
+        , params={"dims": embedding_dimension()}
     )
-    embeddings = OpenAIEmbeddings()
+    embeddings = get_embeddings()
     if filename:
         chunks = kg.query(
             """
@@ -277,7 +279,9 @@ def _create_vector_index_and_embeddings(filename: str | None = None):
             """
         )
     for chunk in chunks:
-        vec = embeddings.embed_query(chunk["text"])
+        vec = embed_text(chunk["text"]) if chunk.get("text") else None
+        if vec is None:
+            continue
         kg.query(
             "MATCH (c:Chunk {id: $id}) SET c.textEmbedding = $embedding",
             params={"id": chunk["id"], "embedding": vec},
@@ -379,19 +383,19 @@ def _build_retriever(user_id: str, filenames: List[str] | None):
     RETURN 
         c.text + '\n\n' + apoc.text.join(contextTexts, ' ') AS text,
         score,
-        {
+        {{
             source: f.source,
             filename: f.filename,
             user_id: f.user_id,
             chunk_index: c.chunk_index,
             section: c.section,
             id: c.id
-        } AS metadata
+        }} AS metadata
     ORDER BY score DESC
     """
 
     vector_store = Neo4jVector.from_existing_index(
-        embedding=OpenAIEmbeddings(),
+        embedding=get_embeddings(),
         url=NEO4J_URI,
         username=NEO4J_USER,
         password=NEO4J_PASS,

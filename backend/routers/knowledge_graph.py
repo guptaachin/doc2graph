@@ -12,28 +12,6 @@ router = APIRouter()
 
 DEFAULT_USER_ID = "guest-user"
 
-
-@router.post("/qa")
-async def qa_endpoint(
-    question: str = Query(...),
-    filenames: list = Query(None),
-):
-    if not question.strip():
-        raise HTTPException(status_code=400, detail="Question cannot be empty")
-    try:
-        return svc_ask_question(user_id=DEFAULT_USER_ID, question=question, filenames=filenames)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"QA error: {str(e)}")
-
-
-@router.get("/files")
-async def list_files():
-    try:
-        return svc_list_files(DEFAULT_USER_ID)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"List files error: {str(e)}")
-
-
 @router.post("/ingest-text")
 async def ingest_text(file: UploadFile = File(...)):
     try:
@@ -49,6 +27,26 @@ async def ingest_url(url: str = Body(..., embed=True)):
         return await svc_ingest_url(DEFAULT_USER_ID, url)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ingest URL error: {str(e)}")
+
+
+@router.post("/qa")
+async def qa_endpoint(
+    question: str = Query(...),
+    filenames: list = Query(None),
+):
+    if not question.strip():
+        raise HTTPException(status_code=400, detail="Question cannot be empty")
+    try:
+        return svc_ask_question(user_id=DEFAULT_USER_ID, question=question, filenames=filenames)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"QA error: {str(e)}")
+
+@router.get("/files")
+async def list_files():
+    try:
+        return svc_list_files(DEFAULT_USER_ID)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"List files error: {str(e)}")
 
 
 @router.get("/graph")
