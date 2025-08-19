@@ -10,6 +10,8 @@ from environment import NEO4J_URI, NEO4J_USER, NEO4J_PASS
 from langchain.chains import RetrievalQAWithSourcesChain
 from langchain_community.vectorstores import Neo4jVector
 from langchain_openai import ChatOpenAI
+from langchain_ollama import ChatOllama
+import environment
 from services.embeddings import get_embeddings, embed_text, embedding_dimension
 from utils.extract_text_from_image import extract_text_from_image
 from utils.extract_text_from_pdf import extract_text_from_pdf
@@ -247,34 +249,36 @@ def _create_chunk_relationships(filename: str | None = None):
 
 
 def _create_vector_index_and_embeddings(filename: str | None = None):
+    dims = embedding_dimension()
+    prop = f"textEmbedding{dims}"
+    index_name = f"pdf_chunks_{dims}"
     kg.query(
-        """
-        CREATE VECTOR INDEX pdf_chunks IF NOT EXISTS
-        FOR (c:Chunk) ON (c.textEmbedding)
-        OPTIONS {
-            indexConfig: {
+        f"""
+        CREATE VECTOR INDEX {index_name} IF NOT EXISTS
+        FOR (c:Chunk) ON (c.{prop})
+        OPTIONS {{
+            indexConfig: {{
                 `vector.dimensions`: $dims,
                 `vector.similarity_function`: 'cosine'
-            }
-        }
-        """
-        , params={"dims": embedding_dimension()}
+            }}
+        }}
+        """,
+        params={"dims": dims},
     )
-    embeddings = get_embeddings()
     if filename:
         chunks = kg.query(
-            """
-            MATCH (f:File {filename: $filename})-[:HAS_CHUNK]->(c:Chunk)
-            WHERE c.textEmbedding IS NULL 
+            f"""
+            MATCH (f:File {{filename: $filename}})-[:HAS_CHUNK]->(c:Chunk)
+            WHERE c.{prop} IS NULL 
             RETURN c.id AS id, c.text AS text, f.filename AS filename
             """,
             params={"filename": filename},
         )
     else:
         chunks = kg.query(
-            """
+            f"""
             MATCH (f:File)-[:HAS_CHUNK]->(c:Chunk)
-            WHERE c.textEmbedding IS NULL 
+            WHERE c.{prop} IS NULL 
             RETURN c.id AS id, c.text AS text, f.filename AS filename
             """
         )
@@ -283,7 +287,7 @@ def _create_vector_index_and_embeddings(filename: str | None = None):
         if vec is None:
             continue
         kg.query(
-            "MATCH (c:Chunk {id: $id}) SET c.textEmbedding = $embedding",
+            f"MATCH (c:Chunk {{id: $id}}) SET c.{prop} = $embedding",
             params={"id": chunk["id"], "embedding": vec},
         )
 
@@ -364,6 +368,9 @@ def _create_file_knowledge_graph(
 
 
 def _build_retriever(user_id: str, filenames: List[str] | None):
+    dims = embedding_dimension()
+    prop = f"textEmbedding{dims}"
+    index_name = f"pdf_chunks_{dims}"
     if filenames:
         filenames_str = ", ".join([f'"{f}"' for f in filenames])
         file_filter = f"AND f.filename IN [{filenames_str}]"
@@ -372,8 +379,8 @@ def _build_retriever(user_id: str, filenames: List[str] | None):
 
     retrieval_query = f"""
     MATCH (u:User {{user_id: '{user_id}'}})-[:UPLOADED]->(f:File)-[:HAS_CHUNK]->(c:Chunk)
-    WHERE c.textEmbedding IS NOT NULL {file_filter}
-    WITH f, c, gds.similarity.cosine(c.textEmbedding, $embedding) AS score
+    WHERE c.{prop} IS NOT NULL {file_filter}
+    WITH f, c, gds.similarity.cosine(c.{prop}, $embedding) AS score
     WITH f, c, score WHERE score > 0.7
     ORDER BY score DESC
     LIMIT 5
@@ -399,7 +406,7 @@ def _build_retriever(user_id: str, filenames: List[str] | None):
         url=NEO4J_URI,
         username=NEO4J_USER,
         password=NEO4J_PASS,
-        index_name="pdf_chunks",
+        index_name=index_name,
         text_node_property="text",
         retrieval_query=retrieval_query,
     )
@@ -408,8 +415,14 @@ def _build_retriever(user_id: str, filenames: List[str] | None):
 
 def ask_question(user_id: str, question: str, filenames: List[str] | None = None) -> Dict[str, Any]:
     retriever = _build_retriever(user_id, filenames)
+    if environment.EMBEDDINGS_PROVIDER.strip().lower() == "ollama":
+        if ChatOllama is None:
+            raise RuntimeError("Ollama chat model not available in current environment")
+        llm = ChatOllama(model=environment.OLLAMA_CHAT_MODEL, temperature=0, base_url=environment.OLLAMA_BASE_URL)
+    else:
+        llm = ChatOpenAI(temperature=0)
     qa_chain = RetrievalQAWithSourcesChain.from_chain_type(
-        ChatOpenAI(temperature=0),
+        llm,
         chain_type="stuff",
         retriever=retriever,
         return_source_documents=True,

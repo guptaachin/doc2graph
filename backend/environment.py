@@ -22,3 +22,6 @@ OPENAI_EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-s
 
 # Optional embedding configuration
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL")
+
+# Chat LLM
+OLLAMA_CHAT_MODEL = os.getenv("OLLAMA_CHAT_MODEL", "phi4-mini:latest")
