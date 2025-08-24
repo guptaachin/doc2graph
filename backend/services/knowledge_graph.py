@@ -448,5 +448,3 @@ def ask_question(user_id: str, question: str, filenames: List[str] | None = None
         "sources": sources,
         "total_sources": len(sources),
     }
-
-
