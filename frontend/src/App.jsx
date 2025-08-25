@@ -4,7 +4,7 @@ import Navbar from './components/Navbar';
 import Home from "./components/Home";
 import QA from "./components/QAchatbot/QAWorking";
 import Ingest from "./components/ingest/Ingest";
-import GraphView from "./components/graph/GraphView";
+import GraphView from "./components/graph/InteractiveGraphView";
 import LoginView from './components/login/LoginView';
 import ProfileView from './components/login/ProfileView';
 

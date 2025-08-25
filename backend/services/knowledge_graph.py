@@ -79,11 +79,22 @@ async def ingest_url(user_id: str, url: str) -> Dict[str, Any]:
 
 
 def get_graph(user_id: str) -> Dict[str, Any]:
+    # Enhanced query to get more detailed node information
     data = kg.query(
         """
         MATCH (u:User {user_id: $user_id})-[:UPLOADED]->(f:File)
         OPTIONAL MATCH (f)-[:HAS_CHUNK]->(c:Chunk)
-        RETURN f.filename AS filename, collect({id: c.id, idx: c.chunk_index}) AS chunks
+        RETURN f.filename AS filename, 
+               f.file_type AS file_type,
+               f.size AS file_size,
+               f.processed_date AS processed_date,
+               collect({
+                   id: c.id, 
+                   idx: c.chunk_index,
+                   text: substring(c.text, 0, 100),
+                   text_length: size(c.text),
+                   section: c.section
+               }) AS chunks
         """,
         params={"user_id": user_id},
     )
@@ -92,26 +103,107 @@ def get_graph(user_id: str) -> Dict[str, Any]:
 
     for row in data or []:
         file_id = f"file::{row['filename']}"
-        nodes.append({"id": file_id, "label": row["filename"], "type": "file"})
+        
+        # Enhanced file node with metadata
+        file_node = {
+            "id": file_id, 
+            "label": row["filename"], 
+            "type": "file",
+            "properties": {
+                "filename": row["filename"],
+                "file_type": row.get("file_type", "unknown"),
+                "file_size": row.get("file_size"),
+                "processed_date": str(row.get("processed_date", "")),
+                "chunk_count": len([ch for ch in row.get("chunks", []) if ch and ch.get("id")])
+            }
+        }
+        nodes.append(file_node)
+        
         for ch in row.get("chunks", []) or []:
             if not ch or ch.get("id") is None:
                 continue
             chunk_id = ch["id"]
-            nodes.append({"id": chunk_id, "label": str(ch.get("idx", "")), "type": "chunk"})
-            edges.append({"source": file_id, "target": chunk_id, "type": "HAS_CHUNK"})
+            
+            # Enhanced chunk node with metadata
+            chunk_node = {
+                "id": chunk_id, 
+                "label": str(ch.get("idx", "")), 
+                "type": "chunk",
+                "properties": {
+                    "chunk_index": ch.get("idx", 0),
+                    "text_preview": ch.get("text", "")[:100] + ("..." if len(ch.get("text", "")) > 100 else ""),
+                    "text_length": ch.get("text_length", 0),
+                    "section": ch.get("section", ""),
+                    "parent_file": row["filename"]
+                }
+            }
+            nodes.append(chunk_node)
+            
+            # Enhanced edge with metadata
+            edge = {
+                "source": file_id, 
+                "target": chunk_id, 
+                "type": "HAS_CHUNK",
+                "properties": {
+                    "relationship": "contains",
+                    "chunk_order": ch.get("idx", 0)
+                }
+            }
+            edges.append(edge)
 
+    # Enhanced next relationships query
     next_rows = kg.query(
         """
         MATCH (c1:Chunk)-[:NEXT]->(c2:Chunk)
-        RETURN c1.id AS s, c2.id AS t
+        RETURN c1.id AS source, 
+               c2.id AS target,
+               c1.chunk_index AS source_idx,
+               c2.chunk_index AS target_idx
         """
     )
     for r in next_rows or []:
-        if r.get("s") and r.get("t"):
-            edges.append({"source": r["s"], "target": r["t"], "type": "NEXT"})
+        if r.get("source") and r.get("target"):
+            edge = {
+                "source": r["source"], 
+                "target": r["target"], 
+                "type": "NEXT",
+                "properties": {
+                    "relationship": "sequence",
+                    "source_index": r.get("source_idx", 0),
+                    "target_index": r.get("target_idx", 0)
+                }
+            }
+            edges.append(edge)
+
+    # Get additional graph statistics
+    stats = kg.query(
+        """
+        MATCH (u:User {user_id: $user_id})
+        OPTIONAL MATCH (u)-[:UPLOADED]->(f:File)
+        OPTIONAL MATCH (f)-[:HAS_CHUNK]->(c:Chunk)
+        RETURN count(DISTINCT f) AS file_count,
+               count(DISTINCT c) AS chunk_count,
+               sum(f.size) AS total_size
+        """,
+        params={"user_id": user_id}
+    )
+    
+    graph_stats = {}
+    if stats:
+        stat_row = stats[0]
+        graph_stats = {
+            "file_count": stat_row.get("file_count", 0),
+            "chunk_count": stat_row.get("chunk_count", 0),
+            "total_size": stat_row.get("total_size", 0)
+        }
 
     unique_nodes = {n["id"]: n for n in nodes}.values()
-    return {"nodes": list(unique_nodes), "edges": edges}
+    return {
+        "nodes": list(unique_nodes), 
+        "edges": edges,
+        "statistics": graph_stats,
+        "user_id": user_id
+    }
 
 
 def health() -> Dict[str, Any]:
