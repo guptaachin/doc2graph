@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const API_BASE = process.env.REACT_APP_API_BASE;
+const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:8000";
 const KG_BASE = `${API_BASE}/knowledge-graph`;
 
 export default function Ingest() {

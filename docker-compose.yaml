@@ -1,0 +1,76 @@
+version: '3.5'
+
+services:
+  # Neo4j Database
+  neo4j:
+    image: neo4j:5
+    container_name: neo4j_local
+    ports:
+      - "7474:7474"   # HTTP Browser
+      - "7687:7687"   # Bolt
+    environment:
+      - NEO4J_AUTH=${NEO4J_AUTH:-neo4j/neo4j1234}
+      - NEO4J_dbms_memory_heap_initial__size=512m
+      - NEO4J_dbms_memory_heap_max__size=1G
+      - NEO4J_dbms_memory_pagecache_size=512m
+      - NEO4J_apoc_export__file__enabled=true
+      - NEO4J_apoc_import__file__enabled=true
+      - NEO4J_apoc_import__file__use__neo4j__config=true
+      - NEO4J_PLUGINS=["apoc","graph-data-science"]
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - neo4j_import:/var/lib/neo4j/import
+      - neo4j_plugins:/plugins
+    networks:
+      - app_network
+    restart: unless-stopped
+
+  # Backend API
+  backend:
+    container_name: backend_app
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app/backend
+    working_dir: /app/backend
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/backend
+    networks:
+      - app_network
+    depends_on:
+      - neo4j
+    restart: unless-stopped
+    environment:
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-neo4j1234}
+
+  # Frontend React App
+  frontend:
+    container_name: frontend_app
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    networks:
+      - app_network
+    depends_on:
+      - backend
+    restart: unless-stopped
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - NODE_ENV=production
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  neo4j_data:
+  neo4j_logs:
+  neo4j_import:
+  neo4j_plugins:

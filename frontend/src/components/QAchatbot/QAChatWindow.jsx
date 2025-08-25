@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import MessageList from "./MessageList";
 import ChatInput from "./ChatInput";
 
-const API_BASE = process.env.REACT_APP_API_BASE;
+const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:8000";
 export const KNOWLEDGE_GRAPH_BASE = `${API_BASE}/knowledge-graph`;
 export const AI_CHAT_URL = `${KNOWLEDGE_GRAPH_BASE}/qa`;
 
@@ -12,7 +12,7 @@ export default function QAChatWindow({ user, token }) {
     { 
       id: 1,
       sender: "bot", 
-      text: `🧠 Hello${user ? ` ${user}` : ''}! I'm your Knowledge Graph assistant. Ask me anything about your uploaded documents!`,
+      text: `🧠 Hello! I'm your Knowledge Graph assistant. Ask me anything about your uploaded documents and I'll search through them to find answers!`,
       timestamp: new Date()
     },
   ]);
@@ -32,17 +32,16 @@ export default function QAChatWindow({ user, token }) {
   const fetchFiles = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${KNOWLEDGE_GRAPH_BASE}/files`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(`${KNOWLEDGE_GRAPH_BASE}/files`);
       if (!res.ok) throw new Error("Failed to fetch files");
       const data = await res.json();
       setFiles(data || []);
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching files:", err);
+      setFiles([]);
     }
     setLoading(false);
-  }, [token]);
+  }, []);
 
   const toggleFileSelection = (filename) => {
     if (selectedFiles.includes(filename)) {
@@ -105,20 +104,36 @@ export default function QAChatWindow({ user, token }) {
       const response = await fetch(`${AI_CHAT_URL}?${params.toString()}`, {
         method: "POST",
         headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          "Content-Type": "application/json"
         },
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error("API Error:", response.status, errorText);
         throw new Error(`Server error: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log("API Response:", data);
+      
+      let botText = data.answer || data.reply || "I couldn't generate a response.";
+      
+      // If we have sources, add them to the response
+      if (data.sources && data.sources.length > 0) {
+        botText += "\n\n📚 Sources:";
+        data.sources.forEach((source, index) => {
+          botText += `\n${index + 1}. ${source.filename}`;
+          if (source.section && source.section !== "Unknown") {
+            botText += ` (${source.section})`;
+          }
+        });
+      }
+      
       const botMessage = {
         id: Date.now() + 1,
         sender: "bot",
-        text: data.answer || data.reply || "I received your message but couldn't generate a response.",
+        text: botText,
         timestamp: new Date()
       };
       
@@ -135,6 +150,8 @@ export default function QAChatWindow({ user, token }) {
         errorMessage = "🔧 I'm experiencing technical difficulties. Please try again in a moment.";
       } else if (error.message.includes('404')) {
         errorMessage = "⚠️ Chat service is temporarily unavailable.";
+      } else if (error.message.includes('400')) {
+        errorMessage = "⚠️ Please check your question and try again.";
       } else {
         errorMessage += retryCount > 2 
           ? "Please refresh the page if the problem persists."
@@ -160,7 +177,7 @@ export default function QAChatWindow({ user, token }) {
     setMessages([{
       id: 1,
       sender: "bot", 
-      text: "👋 Hello! I'm your AI assistant. How can I help you today?",
+      text: "🧠 Hello! I'm your Knowledge Graph assistant. Ask me anything about your uploaded documents and I'll search through them to find answers!",
       timestamp: new Date()
     }]);
     setRetryCount(0);

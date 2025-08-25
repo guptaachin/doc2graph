@@ -1,15 +1,9 @@
 
 import React from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
-function Navbar({ user, onLogout }) {
-  const navigate = useNavigate();
+function Navbar() {
   const location = useLocation();
-
-  const handleLogoutClick = () => {
-    onLogout();
-    navigate("/login");
-  };
 
   const isActive = (path) => {
     return location.pathname === path;
@@ -65,44 +59,9 @@ function Navbar({ user, onLogout }) {
           >
             Q&A
           </Link>
-          
-
-          {user && (
-            <Link 
-              to="/profile" 
-              style={{
-                ...styles.navLink,
-                ...(isActive('/profile') ? styles.activeLink : {})
-              }}
-            >
-              Profile
-            </Link>
-          )}
         </div>
 
-        <div style={styles.authSection}>
-          {!user ? (
-            <Link to="/login" style={styles.loginButton}>
-              Sign In
-            </Link>
-          ) : (
-            <div style={styles.userSection}>
-              <div style={styles.userInfo}>
-                {user.picture ? (
-                  <img src={user.picture} alt={user.name} style={styles.userAvatar} />
-                ) : (
-                  <div style={styles.avatarPlaceholder}>
-                    {user.name?.charAt(0)?.toUpperCase() || 'U'}
-                  </div>
-                )}
-                <span style={styles.userName}>{user.name}</span>
-              </div>
-              <button onClick={handleLogoutClick} style={styles.logoutButton}>
-                Sign Out
-              </button>
-            </div>
-          )}
-        </div>
+
       </div>
     </nav>
   );
@@ -165,68 +124,6 @@ const styles = {
   activeLink: {
     color: '#667eea',
     background: 'rgba(102, 126, 234, 0.1)',
-  },
-  authSection: {
-    display: 'flex',
-    alignItems: 'center',
-  },
-  loginButton: {
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    color: 'white',
-    padding: '0.625rem 1.5rem',
-    borderRadius: '8px',
-    textDecoration: 'none',
-    fontWeight: '600',
-    fontSize: '0.9rem',
-    transition: 'all 0.2s ease',
-    border: 'none',
-    cursor: 'pointer',
-    boxShadow: '0 2px 8px rgba(102, 126, 234, 0.2)',
-  },
-  userSection: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1rem',
-  },
-  userInfo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.75rem',
-  },
-  userAvatar: {
-    width: '32px',
-    height: '32px',
-    borderRadius: '50%',
-    objectFit: 'cover',
-    border: '2px solid #e2e8f0',
-  },
-  avatarPlaceholder: {
-    width: '32px',
-    height: '32px',
-    borderRadius: '50%',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    color: 'white',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontWeight: '600',
-    fontSize: '0.875rem',
-  },
-  userName: {
-    color: '#2d3748',
-    fontWeight: '500',
-    fontSize: '0.9rem',
-  },
-  logoutButton: {
-    background: 'transparent',
-    border: '1px solid #e2e8f0',
-    padding: '0.5rem 1rem',
-    borderRadius: '6px',
-    color: '#4a5568',
-    cursor: 'pointer',
-    fontWeight: '500',
-    fontSize: '0.875rem',
-    transition: 'all 0.2s ease',
   },
 };
 

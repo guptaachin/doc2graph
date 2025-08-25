@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Navbar from './components/Navbar';
 import Home from "./components/Home";
-import QA from "./components/QAchatbot/QAChatWindow";
+import QA from "./components/QAchatbot/QAWorking";
 import Ingest from "./components/ingest/Ingest";
 import GraphView from "./components/graph/GraphView";
 import LoginView from './components/login/LoginView';
@@ -30,7 +30,7 @@ function App() {
 
   return (
     <Router>
-      <Navbar user={user} onLogout={handleLogout} />
+      <Navbar />
 
       <Routes>
         <Route path="/" element={<Home user={user} />} />
