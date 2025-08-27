@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import Navbar from './components/Navbar';
+import { Navigate, Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import Home from "./components/Home";
+import Navbar from './components/Navbar';
 import QA from "./components/QAchatbot/QAWorking";
-import Ingest from "./components/ingest/Ingest";
 import GraphView from "./components/graph/InteractiveGraphView";
+import Ingest from "./components/ingest/Ingest";
 import LoginView from './components/login/LoginView';
 import ProfileView from './components/login/ProfileView';
 

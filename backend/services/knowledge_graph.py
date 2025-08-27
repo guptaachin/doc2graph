@@ -17,12 +17,20 @@ from utils.extract_text_from_image import extract_text_from_image
 from utils.extract_text_from_pdf import extract_text_from_pdf
 
 
-kg = get_neo4j_connection()
+# Lazy connection - only connect when needed
+_kg_connection = None
+
+def get_kg():
+    global _kg_connection
+    if _kg_connection is None:
+        _kg_connection = get_neo4j_connection()
+    return _kg_connection
+
 MAX_TOTAL_BYTES: int = 100 * 1024 * 1024  # 100 MB
 
 
 def list_files(user_id: str) -> List[Dict[str, Any]]:
-    result = kg.query(
+    result = get_kg().query(
         """
         MATCH (u:User {user_id: $user_id})-[:UPLOADED]->(f:File)
         RETURN f.filename AS filename,
@@ -80,7 +88,7 @@ async def ingest_url(user_id: str, url: str) -> Dict[str, Any]:
 
 def get_graph(user_id: str) -> Dict[str, Any]:
     # Enhanced query to get more detailed node information
-    data = kg.query(
+    data = get_kg().query(
         """
         MATCH (u:User {user_id: $user_id})-[:UPLOADED]->(f:File)
         OPTIONAL MATCH (f)-[:HAS_CHUNK]->(c:Chunk)
@@ -152,7 +160,7 @@ def get_graph(user_id: str) -> Dict[str, Any]:
             edges.append(edge)
 
     # Enhanced next relationships query
-    next_rows = kg.query(
+    next_rows = get_kg().query(
         """
         MATCH (c1:Chunk)-[:NEXT]->(c2:Chunk)
         RETURN c1.id AS source, 
@@ -176,7 +184,7 @@ def get_graph(user_id: str) -> Dict[str, Any]:
             edges.append(edge)
 
     # Get additional graph statistics
-    stats = kg.query(
+    stats = get_kg().query(
         """
         MATCH (u:User {user_id: $user_id})
         OPTIONAL MATCH (u)-[:UPLOADED]->(f:File)
@@ -207,7 +215,7 @@ def get_graph(user_id: str) -> Dict[str, Any]:
 
 
 def health() -> Dict[str, Any]:
-    return {"ok": kg.query("RETURN 1 AS ok")}
+    return {"ok": get_kg().query("RETURN 1 AS ok")}
 
 
 def _ensure_constraints():
@@ -217,7 +225,7 @@ def _ensure_constraints():
     }
     for _, query in constraints.items():
         try:
-            kg.query(query)
+            get_kg().query(query)
         except Exception:
             pass
 
@@ -236,7 +244,7 @@ def _split_text(text: str, chunk_size: int = 2000, chunk_overlap: int = 400) -> 
 
 def _create_or_get_user(user_id: str, name: str | None = None, email: str | None = None) -> str:
     _ensure_constraints()
-    kg.query(
+    get_kg().query(
         """
         MERGE (u:User {user_id: $user_id})
         SET u.name = COALESCE($name, u.name),
@@ -251,7 +259,7 @@ def _create_or_get_user(user_id: str, name: str | None = None, email: str | None
 
 def _create_or_update_file_node(filename: str, user_id: str, chunks: List[str], metadata: Dict[str, Any]):
     _ensure_constraints()
-    kg.query(
+    get_kg().query(
         """
         MERGE (f:File {user_id: $user_id, filename: $filename})
         SET f.source = $source,
@@ -271,7 +279,7 @@ def _create_or_update_file_node(filename: str, user_id: str, chunks: List[str], 
             "metadata": metadata,
         },
     )
-    kg.query(
+    get_kg().query(
         """
         MATCH (u:User {user_id: $user_id})
         MATCH (f:File {user_id: $user_id, filename: $filename})
@@ -279,7 +287,7 @@ def _create_or_update_file_node(filename: str, user_id: str, chunks: List[str], 
         """,
         params={"user_id": user_id, "filename": filename},
     )
-    kg.query(
+    get_kg().query(
         """
         MATCH (f:File {user_id: $user_id, filename: $filename})-[:HAS_CHUNK]->(c:Chunk)
         DETACH DELETE c
@@ -304,7 +312,7 @@ def _store_chunks(chunks: List[str], filename: str, user_id: str):
             }
             for j, chunk in enumerate(batch)
         ]
-        kg.query(
+        get_kg().query(
             """
             MATCH (f:File {user_id: $user_id, filename: $filename})
             UNWIND $params AS param
@@ -329,7 +337,7 @@ def _create_chunk_relationships(filename: str | None = None):
         WHERE c1.chunk_index = c2.chunk_index - 1
         MERGE (c1)-[:NEXT]->(c2)
         """
-        kg.query(query, params={"filename": filename})
+        get_kg().query(query, params={"filename": filename})
     else:
         query = """
         MATCH (f:File)-[:HAS_CHUNK]->(c1:Chunk)
@@ -337,14 +345,14 @@ def _create_chunk_relationships(filename: str | None = None):
         WHERE c1.chunk_index = c2.chunk_index - 1
         MERGE (c1)-[:NEXT]->(c2)
         """
-        kg.query(query)
+        get_kg().query(query)
 
 
 def _create_vector_index_and_embeddings(filename: str | None = None):
     dims = embedding_dimension()
     prop = f"textEmbedding{dims}"
     index_name = f"pdf_chunks_{dims}"
-    kg.query(
+    get_kg().query(
         f"""
         CREATE VECTOR INDEX {index_name} IF NOT EXISTS
         FOR (c:Chunk) ON (c.{prop})
@@ -358,7 +366,7 @@ def _create_vector_index_and_embeddings(filename: str | None = None):
         params={"dims": dims},
     )
     if filename:
-        chunks = kg.query(
+        chunks = get_kg().query(
             f"""
             MATCH (f:File {{filename: $filename}})-[:HAS_CHUNK]->(c:Chunk)
             WHERE c.{prop} IS NULL 
@@ -367,7 +375,7 @@ def _create_vector_index_and_embeddings(filename: str | None = None):
             params={"filename": filename},
         )
     else:
-        chunks = kg.query(
+        chunks = get_kg().query(
             f"""
             MATCH (f:File)-[:HAS_CHUNK]->(c:Chunk)
             WHERE c.{prop} IS NULL 
@@ -378,7 +386,7 @@ def _create_vector_index_and_embeddings(filename: str | None = None):
         vec = embed_text(chunk["text"]) if chunk.get("text") else None
         if vec is None:
             continue
-        kg.query(
+        get_kg().query(
             f"MATCH (c:Chunk {{id: $id}}) SET c.{prop} = $embedding",
             params={"id": chunk["id"], "embedding": vec},
         )

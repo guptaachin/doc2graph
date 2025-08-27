@@ -12,24 +12,56 @@ export default function Ingest() {
     e.preventDefault();
     if (!txtFile) return;
     setStatus('Uploading...');
-    const form = new FormData();
-    form.append('file', txtFile);
-    const res = await fetch(`${KG_BASE}/ingest-text`, { method: 'POST', body: form });
-    const data = await res.json();
-    setStatus(data.status === 'success' ? 'Uploaded ✔️' : `Error: ${data.message || 'Unknown'}`);
+    try {
+      const form = new FormData();
+      form.append('file', txtFile);
+      const res = await fetch(`${KG_BASE}/ingest-text`, { method: 'POST', body: form });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+
+      const data = await res.json();
+      setStatus(data.status === 'success' ? 'Uploaded ✔️' : `Error: ${data.message || 'Unknown'}`);
+    } catch (err) {
+      console.error('Upload error:', err);
+      if (err.message.includes('Failed to fetch') || err.message.includes('fetch')) {
+        setStatus('❌ Neo4j database is unreachable. Please wait at least 30 seconds for Neo4j to start.');
+      } else if (err.message.includes('500') || err.message.includes('503')) {
+        setStatus('❌ Database connection failed. Neo4j may still be starting up. Please wait and try again.');
+      } else {
+        setStatus(`❌ Upload failed: ${err.message}`);
+      }
+    }
   };
 
   const submitUrl = async (e) => {
     e.preventDefault();
     if (!url.trim()) return;
     setStatus('Fetching URL...');
-    const res = await fetch(`${KG_BASE}/ingest-url`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url }),
-    });
-    const data = await res.json();
-    setStatus(data.status === 'success' ? 'Ingested URL ✔️' : `Error: ${data.detail || data.message || 'Unknown'}`);
+    try {
+      const res = await fetch(`${KG_BASE}/ingest-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+
+      const data = await res.json();
+      setStatus(data.status === 'success' ? 'Ingested URL ✔️' : `Error: ${data.detail || data.message || 'Unknown'}`);
+    } catch (err) {
+      console.error('URL ingest error:', err);
+      if (err.message.includes('Failed to fetch') || err.message.includes('fetch')) {
+        setStatus('❌ Neo4j database is unreachable. Please wait at least 30 seconds for Neo4j to start.');
+      } else if (err.message.includes('500') || err.message.includes('503')) {
+        setStatus('❌ Database connection failed. Neo4j may still be starting up. Please wait and try again.');
+      } else {
+        setStatus(`❌ URL ingest failed: ${err.message}`);
+      }
+    }
   };
 
   return (
